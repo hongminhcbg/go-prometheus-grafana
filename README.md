@@ -18,3 +18,7 @@ II. Prometheus metric type
     Gause: a single number like temperature
     Histogram: a samples observations like request duration, hit map for each bucket
 
+III. Demo grafana
+
+![alt text](https://github.com/hongminhcbg/go-prometheus-grafana/blob/main/imgs/demo.jpeg/?raw=true)
+
