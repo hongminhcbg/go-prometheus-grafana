@@ -20,8 +20,10 @@ func init() {
 	prometheus.Register(requestDuration)
 }
 
-var _ http.Handler = (*userService)(nil)
-var rawBodySuccess = []byte(`{"data": null}`)
+var (
+	_              http.Handler = (*userService)(nil)
+	rawBodySuccess              = []byte(`{"data": null}`)
+)
 
 var responseStatus = prometheus.NewCounterVec(prometheus.CounterOpts{
 	Name: "response_status",
@@ -40,14 +42,14 @@ var mockStatus = map[int]int{
 
 var requestDuration = prometheus.NewHistogramVec(
 	prometheus.HistogramOpts{
-		Name: "request_duration",
-		Help: "counter request duration",
+		Name:    "request_duration",
+		Help:    "counter request duration",
+		Buckets: []float64{0.1, 0.2, 0.5, 1, 2, 5, 10},
 	},
 	[]string{"request_path"},
 )
 
-type userService struct {
-}
+type userService struct{}
 
 func middlewaresLoggingRequestDuration(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -73,7 +75,7 @@ func (s userService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func fakeClient() {
 	t := time.NewTicker(5 * time.Second).C
-	for _ = range t {
+	for range t {
 		http.Get("http://0.0.0.0:8080/users")
 	}
 }
