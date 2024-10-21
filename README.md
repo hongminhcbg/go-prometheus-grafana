@@ -10,6 +10,7 @@ step 1:
 step 2:
 
     grafana server will be located in http://localhost:3000, defalt username:password is admin:admin
+    Add new data source http://prometheus:9090 and test
 
 II. Prometheus metric type
     
@@ -21,4 +22,7 @@ II. Prometheus metric type
 III. Demo grafana
 
 ![alt text](https://github.com/hongminhcbg/go-prometheus-grafana/blob/main/imgs/demo.jpeg/?raw=true)
+
+![alt text](./imgs/histogram.jpeg/?raw=true)
+
 
