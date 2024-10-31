@@ -11,3 +11,6 @@ scrape_configs:
     static_configs:
       - targets:
           - server:8080
+  - job_name: 'pushgateway'
+    static_configs:
+      - targets: ['0.0.0.0:9091']

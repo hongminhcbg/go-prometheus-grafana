@@ -13,6 +13,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/prometheus/client_golang/prometheus/push"
 )
 
 func init() {
@@ -80,6 +81,15 @@ func fakeClient() {
 	}
 }
 
+func initPrometheusPush() error {
+	pusher := push.New(os.Getenv("PUSH_HOST"), "pushgateway").Gatherer(prometheus.DefaultGatherer)
+	for {
+		time.Sleep(3 * time.Second)
+		pusher.Add()
+		log.Println("pushed metrics")
+	}
+}
+
 func main() {
 	s := &userService{}
 	router := mux.NewRouter()
@@ -87,6 +97,10 @@ func main() {
 	router.Use(middlewaresLoggingRequestDuration)
 	router.Path("/metrics").Handler(promhttp.Handler())
 	router.Path("/users").Handler(s)
+	log.Println("IS_PUSH_METRIC", os.Getenv("IS_PUSH_METRIC"))
+	if os.Getenv("IS_PUSH_METRIC") == "true" {
+		go initPrometheusPush()
+	}
 
 	osSig := make(chan os.Signal, 1)
 	signal.Notify(osSig, syscall.SIGINT, syscall.SIGTERM)
