@@ -1,13 +1,17 @@
 module go-promethus-metrics
 
-go 1.18
+go 1.21.0
+
+toolchain go1.24.0
 
 require (
+	github.com/go-sql-driver/mysql v1.9.2
 	github.com/gorilla/mux v1.8.0
 	github.com/prometheus/client_golang v1.12.1
 )
 
 require (
+	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect

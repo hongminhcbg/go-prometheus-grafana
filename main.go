@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"math/rand"
@@ -14,11 +15,16 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/client_golang/prometheus/push"
+
+	_ "github.com/go-sql-driver/mysql"
 )
+
+// max by (db_stats) (db_stats{job="server"})
 
 func init() {
 	prometheus.Register(responseStatus)
 	prometheus.Register(requestDuration)
+	prometheus.Register(dbStats)
 }
 
 var (
@@ -50,7 +56,55 @@ var requestDuration = prometheus.NewHistogramVec(
 	[]string{"request_path"},
 )
 
-type userService struct{}
+var dbStats = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "db_stats",
+}, []string{"db_stats"})
+
+type (
+	userService   struct{}
+	userServiceV2 struct {
+		db *sql.DB
+	}
+)
+
+func newUserSvcWithSql() *userServiceV2 {
+	db, err := sql.Open("mysql", "root:12345678@tcp(localhost:3306)/users")
+	if err != nil {
+		panic(err)
+	}
+	// See "Important settings" section.
+	db.SetConnMaxLifetime(time.Minute)
+	db.SetMaxOpenConns(20)
+	db.SetMaxIdleConns(5)
+	if err := db.Ping(); err != nil {
+		panic(err)
+	}
+
+	log.Println(db.Stats())
+	ans := &userServiceV2{
+		db: db,
+	}
+
+	ans.metrics()
+	return ans
+}
+
+func (s *userServiceV2) metrics() {
+	t := time.NewTicker(2 * time.Second).C
+	go func() {
+		for {
+			select {
+			case <-t:
+				stats := s.db.Stats()
+				log.Println("db stats", stats)
+				dbStats.WithLabelValues("Idle").Set(float64(stats.Idle))
+				dbStats.WithLabelValues("inuse").Set(float64(stats.InUse))
+				dbStats.WithLabelValues("OpenConnections").Set(float64(stats.OpenConnections))
+				dbStats.WithLabelValues("WaitCount").Set(float64(stats.WaitCount))
+			}
+		}
+	}()
+}
 
 func middlewaresLoggingRequestDuration(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -62,6 +116,23 @@ func middlewaresLoggingRequestDuration(next http.Handler) http.Handler {
 		// Call the next handler, which can be another middleware in the chain, or the final handler.
 		next.ServeHTTP(w, r)
 	})
+}
+
+func (s *userServiceV2) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("content-type", "application/json")
+	ro, err := s.db.Query("SELECT * FROM users")
+	if err != nil {
+		panic(err)
+	}
+
+	defer ro.Close()
+
+	x := rand.Int() % 7
+	time.Sleep(1000 * time.Duration(x) * time.Millisecond)
+	statusResp := mockStatus[x]
+	responseStatus.WithLabelValues(fmt.Sprintf("%d", statusResp)).Inc()
+	w.WriteHeader(statusResp)
+	_, _ = w.Write(rawBodySuccess)
 }
 
 func (s userService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -91,7 +162,8 @@ func initPrometheusPush() error {
 }
 
 func main() {
-	s := &userService{}
+	// s := &userService{}
+	s := newUserSvcWithSql()
 	router := mux.NewRouter()
 	// Prometheus endpoint
 	router.Use(middlewaresLoggingRequestDuration)
